@@ -1,13 +1,17 @@
 const readline = require("readline");
 const WebSocket = require('ws');
 const { Select, Input } = require('enquirer');
+const { stdout } = require("process");
+const { read } = require("fs");
 const chalk = require('chalk').default;
 
 const ws = new WebSocket("ws://localhost:8080");
-var username = '';
-var color = '';
-var hex = ''
-var messages = [];
+let username = '';
+let color = '';
+let hex = ''
+let messages = [];
+let rl;
+const separator = '────────────────────────────';
 
 const palette = [
     {name: 'White', hex: '#e0def4'},
@@ -32,11 +36,11 @@ function displayMessages(){
     readline.cursorTo(process.stdout, 0, 0);
     readline.clearScreenDown(process.stdout);
 
-    // Print all previous messages
-    messages.forEach(msg => console.log(msg));
+    // // Print all previous messages
+    // messages.forEach(msg => console.log(msg));
 
     // Print the separator
-    console.log('────────────────────'); 
+    console.log('────────────────────────────'); 
 
 }
 
@@ -61,18 +65,39 @@ async function initialiseChat() {
 
 async function startChat(){
     displayMessages();
-    const rl = readline.createInterface({
+    rl = readline.createInterface({
         input: process.stdin, 
         output: process.stdout,
     });
 
+    //rl.setPrompt(`${separator}\n` + chalk.hex(hex)(`${username}: `));
     rl.setPrompt(chalk.hex(hex)(`${username}: `));
     rl.prompt();
 
     rl.on('line', (line) => {
         ws.send(JSON.stringify({ username: username, text: line, hex: hex }));
-        messages.push(chalk.hex(hex)(`${username}: ${line}`));
-        displayMessages();
+        readline.moveCursor(process.stdout, 0, -2);
+        readline.clearLine(process.stdout, 0);
+        console.log(chalk.hex(hex)(`${username}: ${line}`));
+        readline.clearLine(process.stdout, 0);
+        console.log('────────────────────────────');
+        rl.prompt();
+    });
+
+    
+
+    // Listen for messages and executes when a message is received from the server.
+    ws.on('message', (message) => {
+        let data = JSON.parse(message);
+
+        readline.cursorTo(process.stdout, 0);
+        readline.moveCursor(process.stdout, 0, -1);
+        readline.clearLine(process.stdout, 0);
+
+        // Find the color of the user
+        console.log(chalk.hex(data.hex)(`${data.username}: ${data.text}`));
+        console.log('────────────────────────────');
+        messages.push(chalk.hex(data.hex)(`${data.username}: ${data.text}`));
         rl.prompt();
     });
 
@@ -84,21 +109,6 @@ async function startChat(){
         readline.clearLine(process.stdout, 0);
         readline.cursorTo(process.stdout, 0);
         process.stdout.write(chalk.hex(hex)(`${username}: ${rl.line}`));
-    });
-
-    // Listen for messages and executes when a message is received from the server.
-    ws.on('message', (message) => {
-        readline.clearLine(process.stdout, 0);
-        readline.cursorTo(process.stdout, 0);
-
-        let data = JSON.parse(message);
-
-        // Find the color of the user
-        console.log(chalk.hex(data.hex)(`${data.username}: ${data.text}`));
-        messages.push(chalk.hex(data.hex)(`${data.username}: ${data.text}`));
-        //rl.prompt();
-        displayMessages();
-        rl.prompt();
     });
 }
 
