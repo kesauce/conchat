@@ -14,7 +14,15 @@ server.on('connection', (ws) =>{
     ws.on('message', (message) => {
         clients.forEach(client => {
             if(client !== ws){
-                client.send(message);
+                let data;
+                try {
+                    data = JSON.parse(message);
+                } catch (err) {
+                    console.log('Invalid JSON received:', message.toString());
+                    return;
+                }
+
+                client.send(`${data.username}: ${data.text}`);
             }
         });
     });
