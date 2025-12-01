@@ -35,13 +35,15 @@ function displayMessages(){
     // Clear the console
     readline.cursorTo(process.stdout, 0, 0);
     readline.clearScreenDown(process.stdout);
+    readline.cursorTo(process.stdout, 0, process.stdout.rows - 2);
 
     // // Print all previous messages
     // messages.forEach(msg => console.log(msg));
 
     // Print the separator
     console.log('────────────────────────────'); 
-
+    rl.setPrompt(chalk.hex(hex)(`${username}: `));
+    rl.prompt();
 }
 
 async function initialiseChat() {
@@ -64,15 +66,12 @@ async function initialiseChat() {
 }
 
 async function startChat(){
-    displayMessages();
+    
     rl = readline.createInterface({
         input: process.stdin, 
         output: process.stdout,
     });
-
-    //rl.setPrompt(`${separator}\n` + chalk.hex(hex)(`${username}: `));
-    rl.setPrompt(chalk.hex(hex)(`${username}: `));
-    rl.prompt();
+    displayMessages();
 
     rl.on('line', (line) => {
         ws.send(JSON.stringify({ username: username, text: line, hex: hex }));
@@ -83,8 +82,6 @@ async function startChat(){
         console.log('────────────────────────────');
         rl.prompt();
     });
-
-    
 
     // Listen for messages and executes when a message is received from the server.
     ws.on('message', (message) => {
