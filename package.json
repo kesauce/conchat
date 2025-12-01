@@ -1,6 +1,6 @@
 {
-  "name": "conchat",
-  "version": "1.0.0",
+  "name": "@kesauce/conchat",
+  "version": "1.0.1",
   "description": "",
   "main": "index.js",
   "scripts": {

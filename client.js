@@ -1,17 +1,17 @@
+#!/usr/bin/env node
 const readline = require("readline");
 const WebSocket = require('ws');
-const { Select, Input } = require('enquirer');
+const { Select } = require('enquirer');
 const { stdout } = require("process");
 const { read } = require("fs");
 const chalk = require('chalk').default;
 
-const ws = new WebSocket("wss://conchat-ns3b.onrender.com/");
+const ws = new WebSocket("https://conchat-i6rn.onrender.com");
 let username = '';
 let color = '';
 let hex = ''
 let messages = [];
 let rl;
-const separator = '────────────────────────────';
 
 const palette = [
     {name: 'White', hex: '#e0def4'},
