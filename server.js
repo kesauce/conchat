@@ -12,6 +12,7 @@ server.on('connection', (ws) =>{
 
     // Listen in for any new messages and write it to every other client
     ws.on('message', (message) => {
+        console.log(message.toString());
         clients.forEach(client => {
             if(client !== ws){
                 let data;
@@ -22,7 +23,7 @@ server.on('connection', (ws) =>{
                     return;
                 }
 
-                client.send(`${data.username}: ${data.text}`);
+                client.send(JSON.stringify(data));
             }
         });
     });
