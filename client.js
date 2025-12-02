@@ -6,7 +6,7 @@ const { stdout } = require("process");
 const { read } = require("fs");
 const chalk = require('chalk').default;
 
-const ws = new WebSocket("https://conchat-i6rn.onrender.com");
+const ws = new WebSocket("https://conchat-ns3b.onrender.com");
 let username = '';
 let color = '';
 let hex = ''
