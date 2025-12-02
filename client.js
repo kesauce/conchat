@@ -28,7 +28,12 @@ const colorPrompt = new Select({
     choices: palette.map(p => ({
         name: p.name,
         message: chalk.hex(p.hex)(p.name)
-    }))
+    })),
+    symbols: {
+        symbols: '',
+        prefix: chalk.white(`☆`),
+        ellipsis: '',
+    }
 });
 
 function displayMessages(){
@@ -51,7 +56,7 @@ async function initialiseChat() {
         input: process.stdin, 
         output: process.stdout,
     });
-    usernameReadLine.question('Enter your username: ', (name) => {
+    usernameReadLine.question('☆ Enter your username: ', (name) => {
         username = name.trim() || 'Anonymous';
 
         usernameReadLine.close();
