@@ -7,7 +7,7 @@ const { read } = require("fs");
 const chalk = require('chalk').default;
 const term = require( 'terminal-kit' ).terminal ;
 
-const ws = new WebSocket("https://conchat-ns3b.onrender.com");
+const ws = new WebSocket("ws://localhost:8080");
 let username = '';
 let color = '';
 let hex = ''
@@ -170,7 +170,6 @@ async function openMenu(){
     connectionType = await new Select({
         name: 'connection',
         message: 'Select connection type: ',
-        // choices: [colorString('#ea9a97', 'Online'), colorString('#3e8fb0', 'LAN'), colorString('#c4a7e7', 'Private')],
         choices: [
             {
                 name: colorString('#ea9a97', 'Online'),
@@ -203,7 +202,6 @@ async function openMenu(){
         roomNumber = await new Select({
             name: 'roomNumber',
             message: 'Select room number: ',
-            //choices: [colorString('#f6c177', 'Room A'), colorString('#ea9a97', 'Room B'), colorString('#3e8fb0', 'Room C'), colorString('#9ccfd8', 'Room D'), colorString('#c4a7e7', 'Room E')],
             choices: [
                 {
                     name: colorString('#f6c177', 'Room A'),
@@ -236,6 +234,9 @@ async function openMenu(){
                 symbols: '',
                 prefix: colorString('#FFFFFF', '★'),
                 ellipsis: '',
+            },
+            result(){
+                return this.focused.value;
             }
         }).run();
 
@@ -243,7 +244,15 @@ async function openMenu(){
     // else if (connectionType == 'Private'){
 
     // }
-    
+    let data = {
+        'type': 'Greet',
+        'username': username,
+        'hex': hex,
+        'connectionType': connectionType,
+        'roomNumber': roomNumber
+    }
+    ws.send(JSON.stringify(data));
+
     openChat();
 }
 
@@ -252,6 +261,7 @@ async function openChat(){
         let msgHeight = term.height - 3;
         messages.forEach(message => {
             term.moveTo(1, msgHeight);
+            term.eraseLine();
             term(colorString(message.hex, message.username + ': ' + message.text));
             msgHeight--;
         });
@@ -266,42 +276,70 @@ async function openChat(){
 
         term.grabInput();
     }
-    function initialiseChat(){
-        term.clear();
+    term.removeAllListeners('key');
+    term.removeAllListeners('resize');
+    term.clear();
 
-        displayMessages();
-        let currentInput = '';
-        let cursorPos = 0;
+    displayMessages();
+    let currentInput = '';
+    let cursorPos = 0;
 
-        term.on('key', (name) => {
-            if (name === 'ENTER') {
-                // Send message and reset
-                messages.unshift({ username: username, text: currentInput, hex: hex });
-                ws.send(JSON.stringify({ username: username, text: currentInput, hex: hex}));
-                term.eraseLine();
-                displayMessages();
-                currentInput = '';
-                cursorPos = 0;
-            } else if (name === 'BACKSPACE') {
-                // Handle backspace
-                if (cursorPos >= 0) {
-                    term.moveTo((username + ': ').length + cursorPos + 1, term.height - 1);
-                    term.eraseLineAfter(); // Erase everything after cursor
-                    cursorPos--;
-                }
-            } else if (name.length === 1) {
-                // Add character at cursor with user's color
-                currentInput += name;
-                term(colorString(hex, name));
-                
-                cursorPos++;
+    // Typing mechanics
+    term.on('key', (name) => {
+        if (name === 'CTRL_C') {
+            term.grabInput(false);
+            term.processExit(0);
+        }
+        if (name === 'ESCAPE') {
+            term.grabInput(false);
+            term.clear();
+            openMenu();
+            return;
+        }
+
+        if (name === 'ENTER') {
+            // Send message and reset
+            messages.unshift({ 'username': username, 'text': currentInput, 'hex': hex });
+            ws.send(JSON.stringify({ 'type': 'Message', 'username': username, 'hex': hex, 'text': currentInput, 'connectionType': connectionType, 'roomNumber': roomNumber }));
+            term.eraseLine();
+            displayMessages();
+            currentInput = '';
+            cursorPos = 0;
+        } else if (name === 'BACKSPACE') {
+            // Handle backspace
+            if (cursorPos >= 0) {
+                currentInput = currentInput.slice(0, -1);
+                term.moveTo((username + ': ').length + cursorPos + 1, term.height - 1);
+                term.eraseLineAfter();
+                cursorPos--;
             }
-            
-            //redrawInputField();
-        });
-    }
+        } else if (name.length === 1) {
+            // Add character at cursor with user's color
+            currentInput += name;
+            term(colorString(hex, name));
+            cursorPos++;
+        }
+        
+    });
 
-    initialiseChat();
+    // Reset display if you resize
+    term.on('resize', () => {
+        term.clear();
+        displayMessages();
+        term(colorString(hex, currentInput));
+    });
+
+    // Receiving messages over the server
+    ws.on('message', (message) => {
+        let data = JSON.parse(message);
+        if (data.type == 'MessageHistory'){
+            messages = data.history;
+        }
+        else if (data.type == 'Message'){
+            messages.unshift(data);
+        }
+        displayMessages();
+    });
 
     
     
