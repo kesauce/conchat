@@ -5,6 +5,7 @@ const { Select } = require('enquirer');
 const { stdout } = require("process");
 const { read } = require("fs");
 const chalk = require('chalk').default;
+const term = require( 'terminal-kit' ).terminal ;
 
 const ws = new WebSocket("https://conchat-ns3b.onrender.com");
 let username = '';
@@ -22,99 +23,131 @@ const palette = [
     {name: 'Foam', hex: '#9ccfd8'},
     {name: 'Iris', hex: '#c4a7e7'}
 ]
-const colorPrompt = new Select({
-    name: 'color',
-    message: 'Pick your color',
-    choices: palette.map(p => ({
-        name: p.name,
-        message: chalk.hex(p.hex)(p.name)
-    })),
-    symbols: {
-        symbols: '',
-        prefix: chalk.white(`☆`),
-        ellipsis: '',
-    }
-});
+// const colorPrompt = new Select({
+//     name: 'color',
+//     message: 'Pick your color',
+//     choices: palette.map(p => ({
+//         name: p.name,
+//         message: chalk.hex(p.hex)(p.name)
+//     })),
+//     symbols: {
+//         symbols: '',
+//         prefix: chalk.white(`☆`),
+//         ellipsis: '',
+//     }
+// });
 
-function displayMessages(){
-    // Clear the console
-    readline.cursorTo(process.stdout, 0, 0);
-    readline.clearScreenDown(process.stdout);
-    readline.cursorTo(process.stdout, 0, process.stdout.rows - 2);
+// function displayMessages(){
+//     // Clear the console
+//     readline.cursorTo(process.stdout, 0, 0);
+//     readline.clearScreenDown(process.stdout);
+//     readline.cursorTo(process.stdout, 0, process.stdout.rows - 2);
 
-    // // Print all previous messages
-    // messages.forEach(msg => console.log(msg));
+//     // // Print all previous messages
+//     // messages.forEach(msg => console.log(msg));
 
-    // Print the separator
-    console.log('────────────────────────────'); 
-    rl.setPrompt(chalk.hex(hex)(`${username}: `));
-    rl.prompt();
-}
+//     // Print the separator
+//     console.log('────────────────────────────'); 
+//     rl.setPrompt(chalk.hex(hex)(`${username}: `));
+//     rl.prompt();
+// }
 
-async function initialiseChat() {
-    const usernameReadLine = readline.createInterface({
-        input: process.stdin, 
-        output: process.stdout,
+// async function initialiseChat() {
+//     const usernameReadLine = readline.createInterface({
+//         input: process.stdin, 
+//         output: process.stdout,
+//     });
+//     usernameReadLine.question('☆ Enter your username: ', (name) => {
+//         username = name.trim() || 'Anonymous';
+
+//         usernameReadLine.close();
+
+//         colorPrompt.run().then(selectedColor => {
+//             color = selectedColor;
+//             hex = palette.find(c => c.name === color).hex;
+
+//             startChat();
+//         });
+//     });    
+// }
+
+// async function startChat(){
+    
+//     rl = readline.createInterface({
+//         input: process.stdin, 
+//         output: process.stdout,
+//     });
+//     displayMessages();
+
+//     rl.on('line', (line) => {
+//         ws.send(JSON.stringify({ username: username, text: line, hex: hex }));
+//         readline.moveCursor(process.stdout, 0, -2);
+//         readline.clearLine(process.stdout, 0);
+//         console.log(chalk.hex(hex)(`${username}: ${line}`));
+//         readline.clearLine(process.stdout, 0);
+//         console.log('────────────────────────────');
+//         rl.prompt();
+//     });
+
+//     // Listen for messages and executes when a message is received from the server.
+//     ws.on('message', (message) => {
+//         let data = JSON.parse(message);
+
+//         readline.cursorTo(process.stdout, 0);
+//         readline.moveCursor(process.stdout, 0, -1);
+//         readline.clearLine(process.stdout, 0);
+
+//         // Find the color of the user
+//         console.log(chalk.hex(data.hex)(`${data.username}: ${data.text}`));
+//         console.log('────────────────────────────');
+//         messages.push(chalk.hex(data.hex)(`${data.username}: ${data.text}`));
+//         rl.prompt();
+//     });
+
+//     // Ensures the user types in their designated colour
+//     readline.emitKeypressEvents(process.stdin);
+//     process.stdin.setRawMode(true);
+
+//     process.stdin.on('keypress', (str, key) => {
+//         readline.clearLine(process.stdout, 0);
+//         readline.cursorTo(process.stdout, 0);
+//         process.stdout.write(chalk.hex(hex)(`${username}: ${rl.line}`));
+//     });
+// }
+
+// initialiseChat();
+
+
+async function initialiseChat(){
+    // Asking user for their username and designated colour
+    term.bold('★ Enter your username: ');
+    username = await term.inputField().promise;
+    
+    term('\n');
+
+    const colorPrompt = new Select({
+        name: 'color',
+        message: 'Pick your color: ',
+        choices: palette.map(p => ({
+            name: p.name,
+            message: chalk.hex(p.hex)(p.name)
+        })),
+        symbols: {
+            symbols: '',
+            prefix: chalk.white(`★`),
+            ellipsis: '',
+        }
     });
-    usernameReadLine.question('☆ Enter your username: ', (name) => {
-        username = name.trim() || 'Anonymous';
 
-        usernameReadLine.close();
+    colorPrompt.run().then(selectedColor => {
+        color = selectedColor;
+        hex = palette.find(c => c.name === color).hex;
 
-        colorPrompt.run().then(selectedColor => {
-            color = selectedColor;
-            hex = palette.find(c => c.name === color).hex;
-
-            startChat();
-        });
-    });    
+        startChat();
+    });
 }
 
 async function startChat(){
     
-    rl = readline.createInterface({
-        input: process.stdin, 
-        output: process.stdout,
-    });
-    displayMessages();
-
-    rl.on('line', (line) => {
-        ws.send(JSON.stringify({ username: username, text: line, hex: hex }));
-        readline.moveCursor(process.stdout, 0, -2);
-        readline.clearLine(process.stdout, 0);
-        console.log(chalk.hex(hex)(`${username}: ${line}`));
-        readline.clearLine(process.stdout, 0);
-        console.log('────────────────────────────');
-        rl.prompt();
-    });
-
-    // Listen for messages and executes when a message is received from the server.
-    ws.on('message', (message) => {
-        let data = JSON.parse(message);
-
-        readline.cursorTo(process.stdout, 0);
-        readline.moveCursor(process.stdout, 0, -1);
-        readline.clearLine(process.stdout, 0);
-
-        // Find the color of the user
-        console.log(chalk.hex(data.hex)(`${data.username}: ${data.text}`));
-        console.log('────────────────────────────');
-        messages.push(chalk.hex(data.hex)(`${data.username}: ${data.text}`));
-        rl.prompt();
-    });
-
-    // Ensures the user types in their designated colour
-    readline.emitKeypressEvents(process.stdin);
-    process.stdin.setRawMode(true);
-
-    process.stdin.on('keypress', (str, key) => {
-        readline.clearLine(process.stdout, 0);
-        readline.cursorTo(process.stdout, 0);
-        process.stdout.write(chalk.hex(hex)(`${username}: ${rl.line}`));
-    });
 }
-
-initialiseChat();
-
-
-
+initialiseChat()
