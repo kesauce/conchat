@@ -1,4 +1,5 @@
 const WebSocket = require('ws');
+const term = require( 'terminal-kit' ).terminal ;
 
 // Connect to WebSocket server
 const ws = new WebSocket('ws://localhost:8080');
@@ -18,6 +19,23 @@ const messages = [
 
 ws.on('open', () => {
     console.log(`🤖 Bot connected to ws://localhost:8080`);
+    let data = {
+        'type': 'Greet',
+        'username': botName,
+        'hex': '#FFFFFF',
+        'connectionType': 'Online',
+        'roomNumber': 'Room A'
+    }
+    ws.send(JSON.stringify(data));
+
+    term.on('key', (name) => {
+    if (name === 'CTRL_C') {
+            ws.send(JSON.stringify({ 'type': 'Closing', 'username': botName, 'hex': '#FFFFFF', 'connectionType': 'Online', 'roomNumber': 'Room A' }));
+            return;
+        }
+    });
+
+   
     
     // Send a message every 3 seconds
     let index = 0;
