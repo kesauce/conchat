@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 const WebSocket = require('ws');
-const { Select } = require('enquirer');
+const { Select, Input } = require('enquirer');
 const term = require( 'terminal-kit' ).terminal ;
 
-const ws = new WebSocket("https://conchat-ns3b.onrender.com");
+//const ws = new WebSocket("https://conchat-ns3b.onrender.com");
+const ws = new WebSocket("ws://localhost:8080");
 let username = '';
 let color = '';
 let hex = ''
@@ -80,13 +81,8 @@ async function openMenu(){
                 value: 'Online'
             },
             {
-                name: colorString('#3e8fb0', 'LAN'),
-                message: colorString('#3e8fb0', 'LAN'),
-                value: 'LAN'
-            },
-            {
-                name: colorString('#c4a7e7', 'Private'),
-                message: colorString('#c4a7e7', 'Private'),
+                name: colorString('#3e8fb0', 'Private'),
+                message: colorString('#3e8fb0', 'Private'),
                 value: 'Private'
             }
         ],
@@ -143,18 +139,75 @@ async function openMenu(){
             }
         }).run();
 
+        let data = {
+            'type': 'Greet',
+            'username': username,
+            'hex': hex,
+            'connectionType': connectionType,
+            'roomNumber': roomNumber
+        }
+        ws.send(JSON.stringify(data));
     }
-    // else if (connectionType == 'Private'){
+    else if (connectionType == 'Private'){
+        let isHosting = await new Select({
+            name: 'isHosting',
+            message: 'Host or join a room: ',
+            choices: [
+                {
+                    name: colorString('#f6c177', 'Host'),
+                    message: colorString('#f6c177', 'Host'),
+                    value: true
+                },
+                {
+                    name: colorString('#c4a7e7', 'Join'),
+                    message: colorString('#c4a7e7', 'Join'),
+                    value: false
+                },
+                ],
 
-    // }
-    let data = {
-        'type': 'Greet',
-        'username': username,
-        'hex': hex,
-        'connectionType': connectionType,
-        'roomNumber': roomNumber
+            symbols: {
+                symbols: '',
+                prefix: colorString('#FFFFFF', '★'),
+                ellipsis: '',
+            },
+            result(){
+                return this.focused.value;
+            }
+        }).run();
+
+        if (!isHosting){
+            roomNumber = await new Input({
+                name: 'roomNumber',
+                message: 'Enter 4-digit room code: ',
+                symbols: {
+                    symbols: '',
+                    prefix: colorString('#FFFFFF', '★'),
+                    ellipsis: '',
+                    separator: '',
+                    suffix: ''
+                },
+                
+            }).run();
+
+            let data = {
+                'type': 'Greet',
+                'username': username,
+                'hex': hex,
+                'connectionType': connectionType,
+                'roomNumber': roomNumber
+            }
+            ws.send(JSON.stringify(data));
+        }
+        else{
+            let request = {
+                'type': 'RequestRoom',
+                'username': username,
+                'hex': hex,
+                'connectionType': connectionType,
+            }
+            ws.send(JSON.stringify(request));
+        }
     }
-    ws.send(JSON.stringify(data));
 
     openChat();
 }
@@ -188,6 +241,7 @@ async function openChat(){
     }
 
     term.clear();
+    messages = [];
     displayMessages();
     let currentInput = '';
     let cursorPos = 0;
@@ -272,6 +326,19 @@ async function openChat(){
         else if (data.type == 'Message' || data.type == 'System'){
             messages.unshift(data);
             messages = messages.slice(0, 49);
+        }
+        else if (data.type == 'RoomResponse'){
+            roomNumber = data.code.toString();
+            let greet =  {
+                'type': 'Greet',
+                'username': username,
+                'hex': hex,
+                'connectionType': connectionType,
+                'roomNumber': roomNumber
+        
+            }
+            ws.send(JSON.stringify(greet));
+
         }
         displayMessages();
     });
