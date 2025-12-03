@@ -38,7 +38,7 @@ server.on('connection', (ws) =>{
         }
         else if (data.type == 'Message'){
             messages[data.roomNumber].unshift(data);
-            messages[data.roomNumber] = messages[data.roomNumber].slice(0, 99);
+            messages[data.roomNumber] = messages[data.roomNumber].slice(0, 49);
 
             clients[data.roomNumber].forEach(client => {
                 if (client !== ws){

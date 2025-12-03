@@ -1,10 +1,6 @@
 #!/usr/bin/env node
-const readline = require("readline");
 const WebSocket = require('ws');
 const { Select } = require('enquirer');
-const { stdout } = require("process");
-const { read } = require("fs");
-const chalk = require('chalk').default;
 const term = require( 'terminal-kit' ).terminal ;
 
 const ws = new WebSocket("ws://localhost:8080");
@@ -276,10 +272,8 @@ async function openChat(){
 
         term.grabInput();
     }
-    term.removeAllListeners('key');
-    term.removeAllListeners('resize');
-    term.clear();
 
+    term.clear();
     displayMessages();
     let currentInput = '';
     let cursorPos = 0;
@@ -291,8 +285,11 @@ async function openChat(){
             term.processExit(0);
         }
         if (name === 'ESCAPE') {
-            term.grabInput(false);
             term.clear();
+            term.removeAllListeners('key');
+            term.removeAllListeners('resize');
+            ws.removeAllListeners('message');
+            term.grabInput(false);
             openMenu();
             return;
         }
@@ -334,9 +331,11 @@ async function openChat(){
         let data = JSON.parse(message);
         if (data.type == 'MessageHistory'){
             messages = data.history;
+            term.clear();
         }
         else if (data.type == 'Message'){
             messages.unshift(data);
+            messages = messages.slice(0, 49);
         }
         displayMessages();
     });
