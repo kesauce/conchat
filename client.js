@@ -3,8 +3,8 @@ const WebSocket = require('ws');
 const { Select, Input } = require('enquirer');
 const term = require( 'terminal-kit' ).terminal ;
 
-//const ws = new WebSocket("https://conchat-ns3b.onrender.com");
-const ws = new WebSocket("ws://localhost:8080");
+const ws = new WebSocket("https://conchat-ns3b.onrender.com");
+//const ws = new WebSocket("ws://localhost:8080");
 let username = '';
 let color = '';
 let hex = ''
