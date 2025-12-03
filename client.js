@@ -3,7 +3,7 @@ const WebSocket = require('ws');
 const { Select } = require('enquirer');
 const term = require( 'terminal-kit' ).terminal ;
 
-const ws = new WebSocket("ws://localhost:8080");
+const ws = new WebSocket("https://conchat-ns3b.onrender.com");
 let username = '';
 let color = '';
 let hex = ''
@@ -224,15 +224,33 @@ async function openChat(){
             // Handle backspace
             if (cursorPos >= 0) {
                 currentInput = currentInput.slice(0, -1);
-                term.moveTo((username + ': ').length + cursorPos + 1, term.height - 1);
+                term.move(-1, 0);
+                //term.moveTo((username + ': ').length + cursorPos + 1, term.height - 1);
                 term.eraseLineAfter();
                 cursorPos--;
             }
         } else if (name.length === 1) {
-            // Add character at cursor with user's color
-            currentInput += name;
-            term(colorString(hex, name));
-            cursorPos++;
+            try{
+                let promptLength = (username + ': ').length;
+                // Max length
+                if (currentInput.length > term.width - promptLength - 10){
+                    return;
+                }
+
+                // Add character at cursor with user's color
+                currentInput += name;
+                term(colorString(hex, name));
+                cursorPos++;
+
+                //term.moveTo((username + ': ').length + 1, term.height - 1).eraseLineAfter()(colorString(hex, currentInput));
+                    
+                // Keep cursor at end
+                term.moveTo(promptLength + currentInput.length + 1, term.height - 1);
+
+            } finally {
+                setTimeout(() => {}, 10); // Short delay for processing
+            }
+            
         }
         
     });
