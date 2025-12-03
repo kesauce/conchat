@@ -37,43 +37,73 @@ function colorString(h, text) {
 }
 
 async function initialiseUser(){
-    // Asking user for their username and designated colour
-    term.bold('★ Enter your username: ');
-    username = await term.inputField().promise;
-    username = username || 'Anonymous';
+    try {
+        // Ignores CTRL C bug
+        process.on('uncaughtException', (err) => {
+            if (err.code === 'ERR_USE_AFTER_CLOSE') {
+                term.processExit(0);
+                return;
+            }
 
-    term('\n');
+            term.processExit(0);
+        });
 
-    const colorPrompt = new Select({
-        name: 'color',
-        message: 'Pick your color: ',
-        choices: palette.map(p => ({
-            name: colorString(p.hex, p.name),
-            message: colorString(p.hex, p.name),
-            value: p.name
-        })),
-        symbols: {
-            symbols: '',
-            prefix: colorString('#FFFFFF', '★'),
-            ellipsis: '',
-        },
-        result() {
-            return this.focused.value;
-        }
-    });
+        // Asking user for their username and designated colour
+        username = await new Input({
+            name: 'username',
+            message: 'Enter your username:',
+            symbols: {
+                symbols: '',
+                prefix: colorString('#FFFFFF', '★'),
+                ellipsis: '',
+                separator: '',
+                suffix: ''
+            },
+            format(value) {
+                return colorString('#FFFFFF', value);
+            },
+            
+        }).run();
 
-    colorPrompt.run().then(selectedColor => {
-        color = selectedColor;
-        hex = palette.find(p => p.name === selectedColor).hex;
+        if (username == ''){ username = 'Anonymous'; }
 
-        openMenu();
-    });
+        const colorPrompt = new Select({
+            name: 'color',
+            message: 'Pick your color: ',
+            choices: palette.map(p => ({
+                name: colorString(p.hex, p.name),
+                message: colorString(p.hex, p.name),
+                value: p.name
+            })),
+            symbols: {
+                prefix: colorString('#FFFFFF', '★'),
+                ellipsis: '',
+                separator: ''
+            },
+            result() {
+                return this.focused.value;
+            }
+        });
+
+        colorPrompt.run().then(selectedColor => {
+            color = selectedColor;
+            hex = palette.find(p => p.name === selectedColor).hex;
+
+            openMenu();
+        });
+    }
+    catch (err){
+        term.processExit(0);
+        return;
+    }
+
 }
 
 async function openMenu(){
-    connectionType = await new Select({
+    try{
+        connectionType = await new Select({
         name: 'connection',
-        message: 'Select connection type: ',
+        message: 'Select connection type:',
         choices: [
             {
                 name: colorString('#ea9a97', 'Online'),
@@ -87,8 +117,8 @@ async function openMenu(){
             }
         ],
         symbols: {
-            symbols: '',
             prefix: colorString('#FFFFFF', '★'),
+            separator: '',
             ellipsis: '',
         },
         result(){
@@ -100,7 +130,7 @@ async function openMenu(){
     if (connectionType == 'Online'){
         roomNumber = await new Select({
             name: 'roomNumber',
-            message: 'Select room number: ',
+            message: 'Select room number:',
             choices: [
                 {
                     name: colorString('#f6c177', 'Room A'),
@@ -130,8 +160,8 @@ async function openMenu(){
                 ],
 
             symbols: {
-                symbols: '',
                 prefix: colorString('#FFFFFF', '★'),
+                separator: '',
                 ellipsis: '',
             },
             result(){
@@ -151,7 +181,7 @@ async function openMenu(){
     else if (connectionType == 'Private'){
         let isHosting = await new Select({
             name: 'isHosting',
-            message: 'Host or join a room: ',
+            message: 'Host or join a room:',
             choices: [
                 {
                     name: colorString('#f6c177', 'Host'),
@@ -166,8 +196,8 @@ async function openMenu(){
                 ],
 
             symbols: {
-                symbols: '',
                 prefix: colorString('#FFFFFF', '★'),
+                separator: '',
                 ellipsis: '',
             },
             result(){
@@ -178,13 +208,13 @@ async function openMenu(){
         if (!isHosting){
             roomNumber = await new Input({
                 name: 'roomNumber',
-                message: 'Enter 4-digit room code: ',
+                message: 'Enter 4-digit room code:',
                 symbols: {
-                    symbols: '',
                     prefix: colorString('#FFFFFF', '★'),
-                    ellipsis: '',
                     separator: '',
-                    suffix: ''
+                },
+                format(value) {
+                    return colorString('#FFFFFF', value);
                 },
                 
             }).run();
@@ -210,138 +240,151 @@ async function openMenu(){
     }
 
     openChat();
+    }
+    catch(err){
+        console.log(err);
+        return;
+    }
+   
 }
 
 async function openChat(){
-    function displayMessages(){
-        let msgHeight = term.height - 3;
-        messages.forEach(message => {
-            term.moveTo(1, msgHeight);
-            term.eraseLine();  
-            if (message.type == 'System'){
-                let sysMessage = colorString('#FFFFFF', '★ ') + message.text + colorString('#FFFFFF', ' ★');
-                const padding = Math.floor((term.width - message.text.length - 2) / 2);
-                term(padding > 0 ? ' '.repeat(padding) : '')(sysMessage)('\n');
-            }
-            else{
-                term(colorString(message.hex, message.username + ': ' + message.text));
-            }
-            msgHeight--;
-        });
-
-        // Draw separator line
-        term.moveTo(1, term.height - 2);
-        term.eraseLine();
-        term('─'.repeat(term.width));
-
-        term.moveTo(1, term.height - 1);
-        term(colorString(hex, username + ': '));
-
-        term.grabInput();
-    }
-
-    term.clear();
-    messages = [];
-    displayMessages();
-    let currentInput = '';
-    let cursorPos = 0;
-
-    // Typing mechanics
-    term.on('key', (name) => {
-        if (name === 'CTRL_C') {
-            term.grabInput(false);
-            term.processExit(0);
-            ws.send(JSON.stringify({ 'type': 'Closing', 'username': username, 'hex': hex, 'connectionType': connectionType, 'roomNumber': roomNumber }));
-        }
-        if (name === 'ESCAPE') {
-            // Clean up and send closing message
-            term.clear();
-            term.removeAllListeners('key');
-            term.removeAllListeners('resize');
-            ws.removeAllListeners('message');
-            term.grabInput(false);
-            openMenu();
-
-            ws.send(JSON.stringify({ 'type': 'Closing', 'username': username, 'hex': hex, 'connectionType': connectionType, 'roomNumber': roomNumber }));
-            return;
-        }
-
-        if (name === 'ENTER') {
-            // Send message and reset
-            messages.unshift({ 'username': username, 'text': currentInput, 'hex': hex });
-            ws.send(JSON.stringify({ 'type': 'Message', 'username': username, 'hex': hex, 'text': currentInput, 'connectionType': connectionType, 'roomNumber': roomNumber }));
-            term.eraseLine();
-            displayMessages();
-            currentInput = '';
-            cursorPos = 0;
-        } else if (name === 'BACKSPACE') {
-            // Handle backspace
-            if (cursorPos >= 0) {
-                currentInput = currentInput.slice(0, -1);
-                term.move(-1, 0);
-                //term.moveTo((username + ': ').length + cursorPos + 1, term.height - 1);
-                term.eraseLineAfter();
-                cursorPos--;
-            }
-        } else if (name.length === 1) {
-            try{
-                let promptLength = (username + ': ').length;
-                // Max length
-                if (currentInput.length > term.width - promptLength - 10){
-                    return;
+    try{
+        function displayMessages(){
+            let msgHeight = term.height - 3;
+            messages.forEach(message => {
+                term.moveTo(1, msgHeight);
+                term.eraseLine();  
+                if (message.type == 'System'){
+                    let sysMessage = colorString('#FFFFFF', '★ ') + message.text + colorString('#FFFFFF', ' ★');
+                    const padding = Math.floor((term.width - message.text.length - 2) / 2);
+                    term(padding > 0 ? ' '.repeat(padding) : '')(sysMessage)('\n');
                 }
+                else{
+                    term(colorString(message.hex, message.username + ': ' + message.text));
+                }
+                msgHeight--;
+            });
 
-                // Add character at cursor with user's color
-                currentInput += name;
-                term(colorString(hex, name));
-                cursorPos++;
+            // Draw separator line
+            term.moveTo(1, term.height - 2);
+            term.eraseLine();
+            term('─'.repeat(term.width));
 
-                //term.moveTo((username + ': ').length + 1, term.height - 1).eraseLineAfter()(colorString(hex, currentInput));
-                    
-                // Keep cursor at end
-                term.moveTo(promptLength + currentInput.length + 1, term.height - 1);
+            term.moveTo(1, term.height - 1);
+            term(colorString(hex, username + ': '));
 
-            } finally {
-                setTimeout(() => {}, 10); // Short delay for processing
+            term.grabInput();
+        }
+
+        term.clear();
+        messages = [];
+        displayMessages();
+        let currentInput = '';
+        let cursorPos = 0;
+
+        // Typing mechanics
+        term.on('key', (name) => {
+            if (name === 'CTRL_C') {
+                term.grabInput(false);
+                term.processExit(0);
+                ws.send(JSON.stringify({ 'type': 'Closing', 'username': username, 'hex': hex, 'connectionType': connectionType, 'roomNumber': roomNumber }));
+            }
+            if (name === 'ESCAPE') {
+                // Clean up and send closing message
+                term.clear();
+                term.removeAllListeners('key');
+                term.removeAllListeners('resize');
+                ws.removeAllListeners('message');
+                term.grabInput(false);
+                openMenu();
+
+                ws.send(JSON.stringify({ 'type': 'Closing', 'username': username, 'hex': hex, 'connectionType': connectionType, 'roomNumber': roomNumber }));
+                return;
+            }
+
+            if (name === 'ENTER') {
+                // Send message and reset
+                messages.unshift({ 'username': username, 'text': currentInput, 'hex': hex });
+                ws.send(JSON.stringify({ 'type': 'Message', 'username': username, 'hex': hex, 'text': currentInput, 'connectionType': connectionType, 'roomNumber': roomNumber }));
+                term.eraseLine();
+                displayMessages();
+                currentInput = '';
+                cursorPos = 0;
+            } else if (name === 'BACKSPACE') {
+                // Handle backspace
+                if (cursorPos >= 0) {
+                    currentInput = currentInput.slice(0, -1);
+                    term.move(-1, 0);
+                    //term.moveTo((username + ': ').length + cursorPos + 1, term.height - 1);
+                    term.eraseLineAfter();
+                    cursorPos--;
+                }
+            } else if (name.length === 1) {
+                try{
+                    let promptLength = (username + ': ').length;
+                    // Max length
+                    if (currentInput.length > term.width - promptLength - 10){
+                        return;
+                    }
+
+                    // Add character at cursor with user's color
+                    currentInput += name;
+                    term(colorString(hex, name));
+                    cursorPos++;
+
+                    //term.moveTo((username + ': ').length + 1, term.height - 1).eraseLineAfter()(colorString(hex, currentInput));
+                        
+                    // Keep cursor at end
+                    term.moveTo(promptLength + currentInput.length + 1, term.height - 1);
+
+                } finally {
+                    setTimeout(() => {}, 10); // Short delay for processing
+                }
+                
             }
             
-        }
-        
-    });
+        });
 
-    // Reset display if you resize
-    term.on('resize', () => {
-        term.clear();
-        displayMessages();
-        term(colorString(hex, currentInput));
-    });
-
-    // Receiving messages over the server
-    ws.on('message', (message) => {
-        let data = JSON.parse(message);
-        if (data.type == 'MessageHistory'){
-            messages = data.history;
+        // Reset display if you resize
+        term.on('resize', () => {
             term.clear();
-        }
-        else if (data.type == 'Message' || data.type == 'System'){
-            messages.unshift(data);
-            messages = messages.slice(0, 49);
-        }
-        else if (data.type == 'RoomResponse'){
-            roomNumber = data.code.toString();
-            let greet =  {
-                'type': 'Greet',
-                'username': username,
-                'hex': hex,
-                'connectionType': connectionType,
-                'roomNumber': roomNumber
-        
-            }
-            ws.send(JSON.stringify(greet));
+            displayMessages();
+            term(colorString(hex, currentInput));
+        });
 
-        }
-        displayMessages();
-    });
+        // Receiving messages over the server
+        ws.on('message', (message) => {
+            let data = JSON.parse(message);
+            if (data.type == 'MessageHistory'){
+                messages = data.history;
+                term.clear();
+            }
+            else if (data.type == 'Message' || data.type == 'System'){
+                messages.unshift(data);
+                messages = messages.slice(0, 49);
+            }
+            else if (data.type == 'RoomResponse'){
+                roomNumber = data.code.toString();
+                let greet =  {
+                    'type': 'Greet',
+                    'username': username,
+                    'hex': hex,
+                    'connectionType': connectionType,
+                    'roomNumber': roomNumber
+            
+                }
+                ws.send(JSON.stringify(greet));
+
+            }
+            displayMessages();
+        });
+    }
+    catch(err){
+        term.processExit(0);
+        return;
+    }
+    
 
     
     
